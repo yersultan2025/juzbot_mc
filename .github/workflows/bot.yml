@@ -1,4 +1,4 @@
-name: Run Telegram Bot
+name: Telegram Bot 24/7
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Репозиторийді клондау
+      - name: Репозиторийді жүктеу
         uses: actions/checkout@v3
 
       - name: Python орнату
@@ -24,3 +24,4 @@ jobs:
 
       - name: Ботты іске қосу
         run: python bot.py
+
