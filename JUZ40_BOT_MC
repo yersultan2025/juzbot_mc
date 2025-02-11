@@ -1,13 +1,22 @@
+import asyncio
+import io
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import telebot
-import io
-import numpy as np
 from PIL import Image
-# Телеграм боттың TOKEN-і
-TOKEN = "7700810947:AAEJfVDMYwOlqCXtT5v0wjG4v4Ol0_C2Tl0"
-bot = telebot.TeleBot(TOKEN)
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import Message
+from aiogram.filters import Command
+import os
+from dotenv import load_dotenv
+
+# 📌 .env файлдан токенді жүктеу
+load_dotenv()
+TOKEN = os.getenv("BOT_TOKEN")
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
 
 formulas = {
 "пифагор": r"c^2 = a^2 + b^2",
@@ -537,72 +546,81 @@ formulas = {
     "Конус көлем формула": r"V = \frac{1}{3} \pi r^2 h"   
   }
 
+
 # 📌 Фон түсі
 BACKGROUND_COLOR = "#0097A7"
 IMG_SIZE = (1080, 1080)
 
-# 📌 Шрифтті дұрыстау
+# 📌 Шрифт параметрлері
 plt.rcParams["mathtext.fontset"] = "stix"
-plt.rcParams["font.weight"] = "bold"  # 🏋 Жирный (қалың) шрифт
+plt.rcParams["font.weight"] = "bold"
 
+# 📌 Старт командасы
+@dp.message(Command("start"))
+async def send_welcome(message: Message):
+    await message.answer("Сәлем, болашақ грант иегері! Қай формуланы білгің келеді?")
 
-@bot.message_handler(commands=["start", "help"])
-def send_welcome(message):
-    bot.reply_to(message, "Сәлем, болашақ грант иегері! Қай формуланы білгің келеді?")
+# 📌 Формуланы іздеу
+@dp.message()
+async def send_formula(message: Message):
+    text = message.text.lower()
 
-@bot.message_handler(func=lambda message: message.text.lower() in formulas)
-def send_formula(message):
-    formula_text = formulas[message.text.lower()]
+    if text in formulas:
+        formula_text = formulas[text]
 
-    # 📌 Фон жасау
-    img = Image.new("RGB", IMG_SIZE, BACKGROUND_COLOR)
+        # 📌 Фон жасау
+        img = Image.new("RGB", IMG_SIZE, BACKGROUND_COLOR)
 
-    # 📌 Формула жазу
-    fig, ax = plt.subplots(figsize=(8, 4))  # Ұзын формулаларға кеңірек орын беру
-    fig.patch.set_facecolor(BACKGROUND_COLOR)
-    ax.set_facecolor(BACKGROUND_COLOR)
+        # 📌 Формуланы жазу
+        fig, ax = plt.subplots(figsize=(8, 4))
+        fig.patch.set_facecolor(BACKGROUND_COLOR)
+        ax.set_facecolor(BACKGROUND_COLOR)
 
-    ax.text(0.5, 0.5, f"${formula_text}$", fontsize=15, ha='center', va='center', color="white")  # 📌 Шрифт үлкен
-    ax.axis('off')
+        ax.text(0.5, 0.5, f"${formula_text}$", fontsize=15, ha='center', va='center', color="white")
+        ax.axis('off')
 
-    # 📌 Шекараларды жою
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        # 📌 Шекараларды жою
+        fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
-    # 📌 Суретке айналдыру
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=300, transparent=True)
-    buf.seek(0)
+        # 📌 Суретке айналдыру
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300, transparent=True)
+        buf.seek(0)
 
-    formula_img = Image.open(buf)
+        formula_img = Image.open(buf)
 
-    # 📌 Формуланы ортасына қою
-    formula_x = (IMG_SIZE[0] - formula_img.width) // 2
-    formula_y = (IMG_SIZE[1] - formula_img.height) // 2
-    img.paste(formula_img, (formula_x, formula_y), formula_img)
+        # 📌 Формуланы фонның ортасына қою
+        formula_x = (IMG_SIZE[0] - formula_img.width) // 2
+        formula_y = (IMG_SIZE[1] - formula_img.height) // 2
+        img.paste(formula_img, (formula_x, formula_y), formula_img)
 
-    # 📌 Логотип қосу (болса)
-    try:
-        logo = Image.open("logo.png").convert("RGBA")
-        logo_size = (200, 80)  # Логотип өлшемі
-        logo = logo.resize(logo_size)
+        # 📌 Логотип қосу (болса)
+        try:
+            logo = Image.open("logo.png").convert("RGBA")
+            logo_size = (200, 80)
+            logo = logo.resize(logo_size)
 
-        x_position = (IMG_SIZE[0] - logo_size[0]) // 2
-        y_position = IMG_SIZE[1] - logo_size[1] - 50  # Төменгі жаққа қою
+            x_position = (IMG_SIZE[0] - logo_size[0]) // 2
+            y_position = IMG_SIZE[1] - logo_size[1] - 50
 
-        img.paste(logo, (x_position, y_position), logo)
-    except Exception as e:
-        print(f"Логотипті жүктеу қатесі: {e}")
+            img.paste(logo, (x_position, y_position), logo)
+        except Exception as e:
+            print(f"Логотипті жүктеу қатесі: {e}")
 
-    # 📌 Дайын суретті жіберу
-    final_buf = io.BytesIO()
-    img.save(final_buf, format="PNG")
-    final_buf.seek(0)
+        # 📌 Дайын суретті жіберу
+        final_buf = io.BytesIO()
+        img.save(final_buf, format="PNG")
+        final_buf.seek(0)
 
-    bot.send_photo(message.chat.id, final_buf)
-    plt.close()
+        await message.answer_photo(final_buf)
+        plt.close()
+    else:
+        await message.answer("Кешіріңіз, менің кітапханамда бұл формула табылмады.")
 
-@bot.message_handler(func=lambda message: message.text.lower() not in formulas)
-def unknown_formula(message):
-    bot.reply_to(message, "Кешіріңіз, менің кітапханамда бұл формула табылмады.")
+# 📌 Ботты іске қосу
+async def main():
+    print("Бот іске қосылды...")
+    await dp.start_polling(bot)
 
-bot.infinity_polling(timeout=10, long_polling_timeout=5)
+if __name__ == "__main__":
+    asyncio.run(main())
