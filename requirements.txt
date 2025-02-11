@@ -1,5 +1,5 @@
 aiogram==3.0.0
+python-dotenv
+numpy
 matplotlib
 pillow
-numpy
-python-dotenv
